@@ -4,6 +4,7 @@ import chainer
 from chainer.backends.cuda import get_device_from_id
 
 import visualize
+from affine_model import AffineSamplingVAE
 from model import SamplingVAE
 
 
@@ -15,6 +16,8 @@ def main():
                         help='Number of sweeps over the dataset to train')
     parser.add_argument('--gpu', '-g', type=int, default=0,
                         help='GPU ID (negative value indicates CPU)')
+    parser.add_argument('--model', '-m', default='sampling6x',
+                        help='Model to use: sampling6x or affine3x')
     parser.add_argument('--out', '-o', default='result',
                         help='Directory to output the result')
     parser.add_argument('--resume', '-r', default='',
@@ -26,7 +29,14 @@ def main():
     print('# epoch: {}'.format(args.epoch))
     print('')
 
-    model = SamplingVAE()
+    if args.model == 'sampling6x':
+        print('Using sampling decoder for up-scaling.')
+        model = SamplingVAE()
+    elif args.model == 'affine3x':
+        print('Using Affine-transformed sampling decoder.')
+        model = AffineSamplingVAE()
+    else:
+        raise RuntimeError('Invalid model choice.')
 
     if args.gpu >= 0:
         chainer.backends.cuda.get_device_from_id(args.gpu).use()
@@ -36,6 +46,7 @@ def main():
     optimizer.setup(model)
 
     train, test = chainer.datasets.get_mnist(True, 3)
+
     train_iter = chainer.iterators.SerialIterator(train, args.batchsize)
     test_iter = chainer.iterators.SerialIterator(test, args.batchsize, False, False)
     dump_iter = chainer.iterators.SerialIterator(test, 16)
@@ -55,9 +66,20 @@ def main():
         ['epoch',
          'main/x_loss', 'validation/main/x_loss',
          'main/z_loss',
+         'main/decoder/scale', 'main/decoder/theta', 'main/decoder/tx', 'main/decoder/ty',
          'elapsed_time']))
 
     trainer.extend(visualize.Visualize(dump_iter, model, device=args.gpu))
+
+    chainer.config.user_warm_up = 0.0
+
+    @chainer.training.make_extension(trigger=(1, 'epoch'))
+    def warm_up(trainer):
+        epoch = trainer.updater.epoch
+        w = 1.0 if epoch > 5 else epoch / 5.0
+        chainer.config.user_warm_up = w * w
+
+    trainer.extend(warm_up)
 
     if args.resume:
         chainer.serializers.load_npz(args.resume, trainer)

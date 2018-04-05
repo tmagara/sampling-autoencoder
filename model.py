@@ -104,4 +104,7 @@ class SamplingVAE(chainer.Chain):
         y = self.decoder(z.data, (x0.shape[0], x0.shape[1], 168, 168))
         y = chainer.functions.sigmoid(y)
 
-        return y
+        x0 = xp.broadcast_to(x0[:, :, :, None, :, None], x0.shape[0:3] + (6, x0.shape[3], 6))
+        x0 = xp.reshape(x0, x0.shape[0:2] + (x0.shape[2] * x0.shape[3], x0.shape[3] * x0.shape[4]))
+
+        return {'original': x0, 'zoomed': y}
