@@ -79,15 +79,16 @@ class AffineSamplingDecoder(chainer.Chain):
 class AffineSamplingVAE(chainer.Chain):
     def __init__(self):
         super().__init__()
-        units = [28 * 28, 512, 392, 256, 8]
+        units = [28 * 28, 392, 196, 98, 49, 8]
         initializer = chainer.initializers.HeNormal()
         zero_initializer = chainer.initializers.Constant(0)
         with self.init_scope():
             self.e1 = chainer.links.Linear(units[0], units[1], initialW=initializer)
             self.e2 = chainer.links.Linear(units[1], units[2], initialW=initializer)
             self.e3 = chainer.links.Linear(units[2], units[3], initialW=initializer)
-            self.e4 = chainer.links.Linear(units[3], units[4] * 2, initialW=initializer)
-            self.e4_affine = chainer.links.Linear(units[3], 4, initialW=zero_initializer)
+            self.e4 = chainer.links.Linear(units[3], units[4], initialW=initializer)
+            self.e5 = chainer.links.Linear(units[4], units[5] * 2, initialW=initializer)
+            self.e5_affine = chainer.links.Linear(units[4], 4, initialW=zero_initializer)
 
             self.decoder = AffineSamplingDecoder(units[-1])
 
@@ -99,9 +100,11 @@ class AffineSamplingVAE(chainer.Chain):
         h = chainer.functions.relu(h)
         h = self.e3(h)
         h = chainer.functions.relu(h)
-        h1_2 = self.e4(h)
+        h = self.e4(h)
+        h = chainer.functions.relu(h)
+        h1_2 = self.e5(h)
         h1, h2 = chainer.functions.split_axis(h1_2, (h1_2.shape[1] // 2,), 1)
-        h3 = self.e4_affine(h)
+        h3 = self.e5_affine(h)
         h3 = h3 * chainer.config.user_warm_up
         return h1, h2, h3
 
