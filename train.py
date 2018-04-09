@@ -32,9 +32,11 @@ def main():
     if args.model == 'sampling6x':
         print('Using sampling decoder for up-scaling.')
         model = SamplingVAE()
+        dump_rows, dump_columns = (4, 4)
     elif args.model == 'affine3x':
         print('Using Affine-transformed sampling decoder.')
         model = AffineSamplingVAE()
+        dump_rows, dump_columns = (4, 4)
     else:
         raise RuntimeError('Invalid model choice.')
 
@@ -49,7 +51,7 @@ def main():
 
     train_iter = chainer.iterators.SerialIterator(train, args.batchsize)
     test_iter = chainer.iterators.SerialIterator(test, args.batchsize, False, False)
-    dump_iter = chainer.iterators.SerialIterator(test, 16)
+    dump_iter = chainer.iterators.SerialIterator(test, dump_rows * dump_columns)
 
     stop_trigger = (args.epoch, 'epoch')
 
@@ -69,7 +71,7 @@ def main():
          'main/decoder/scale', 'main/decoder/theta', 'main/decoder/tx', 'main/decoder/ty',
          'elapsed_time']))
 
-    trainer.extend(visualize.Visualize(dump_iter, model, device=args.gpu))
+    trainer.extend(visualize.Visualize(dump_rows, dump_iter, model, device=args.gpu))
 
     chainer.config.user_warm_up = 0.0
 

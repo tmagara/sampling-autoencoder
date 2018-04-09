@@ -8,7 +8,8 @@ from matplotlib import pyplot
 class Visualize(chainer.training.Extension):
     trigger = (1, 'epoch')
 
-    def __init__(self, iterator, target, converter=chainer.dataset.convert.concat_examples, device=None):
+    def __init__(self, rows, iterator, target, converter=chainer.dataset.convert.concat_examples, device=None):
+        self.rows = rows
         self.iterator = iterator
         self.target = target
         self.converter = converter
@@ -18,15 +19,17 @@ class Visualize(chainer.training.Extension):
         x, labels = self.converter(self.iterator.next(), self.device)
         images_map = self.target.show(x)
         for key, images in images_map.items():
-            images = numpy2pyplot(images)
+            images = numpy2pyplot(images, self.rows)
             path = pathlib.Path(trainer.out) / pathlib.Path("epoch_{}_{}.png".format(trainer.updater.epoch, key))
             save_cifar_vh(images, str(path), 1)
 
 
-def numpy2pyplot(images):
-    images = chainer.functions.broadcast_to(images, (images.shape[0], 3) + images.shape[2:])
-    images = chainer.functions.transpose(images, (0, 2, 3, 1))
-    images = chainer.functions.reshape(images, (4, -1) + images.shape[1:])
+def numpy2pyplot(images, rows):
+    if len(images.shape) == 4:
+        images = chainer.functions.reshape(images, (rows, -1) + images.shape[1:])
+    images = chainer.functions.transpose(images, (0, 1, 3, 4, 2))
+    if images.shape[4] == 1:
+        images = chainer.functions.broadcast_to(images, images.shape[0:4] + (3, ))
     images = chainer.backends.cuda.to_cpu(images.data)
     return images
 
