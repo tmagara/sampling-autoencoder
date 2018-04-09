@@ -115,8 +115,9 @@ class AffineSamplingVAE(chainer.Chain):
             x = (x > xp.random.uniform(size=(2,) + x.shape[1:])).astype(x.dtype)
             x = xp.sum(x, 0) / x.shape[0]
 
-        z, z_ln_var, affine_params = self.encode(x)
+        z_mu, z_ln_var, affine_params = self.encode(x)
 
+        z = z_mu
         if chainer.config.train:
             std = chainer.functions.exp(0.5 * z_ln_var)
             gaussian = xp.random.normal(size=z.shape)
@@ -125,7 +126,7 @@ class AffineSamplingVAE(chainer.Chain):
         y = self.decoder(z, affine_params, x0.shape)
 
         x_loss = chainer.functions.bernoulli_nll(x0, y) / y.size
-        z_loss = chainer.functions.gaussian_kl_divergence(z, z_ln_var) / z.size
+        z_loss = chainer.functions.gaussian_kl_divergence(z_mu, z_ln_var) / z.size
 
         chainer.report({
             'x_loss': x_loss,
